@@ -92,7 +92,7 @@ SAE22/
 │ ├── RadioInternet_ESP32_VS1053.pptx
 │ ├── VS1053b_Datasheet.pdf
 │ ├── schema_esp32_vs1053.pdf
-│ └── pcb_layout/
+│ └── pcb_layout.png
 ├── 2 - Arduino_Project/
 │ ├── WebRadio_ESP32_VS1053.ino
 │ ├── libraries/
