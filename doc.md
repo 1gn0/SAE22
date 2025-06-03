@@ -55,3 +55,23 @@ MOSI (Master Out, Slave In) : données envoyées du maître vers l’esclave.
 MISO (Master In, Slave Out) : données envoyées de l’esclave vers le maître.
 
 SS ou CS (Slave Select / Chip Select) : chaque esclave est “sélectionné” par une broche CS mise à LOW par le maître.
+
+
+
+### Partie 3 : Codec 
+
+Q7 : Donner les 6 broches qui constituent le SPI pour le VS1053.
+
+SDI
+SDO
+SCLK
+MP3CS
+DREQ
+XDCS
+
+Q8 : Que signifie SDI et SCI ? Indiquer les broches qui sont dédiées au SDI et au SCI.
+
+Serial Data In
+Serial Clock In
+SDI et SCI sont les deux broches qui sont utilisées pour envoyer et recevoir des données sur le bus SPI.
+
