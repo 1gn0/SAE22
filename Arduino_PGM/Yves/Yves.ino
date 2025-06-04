@@ -14,6 +14,7 @@
 #include <VS1053.h>
 #include <WiFi.h>
 #include <math.h> // Pour les calculs audio avancés
+#include <WiFiManager.h>
 
 // broches utilisées
 #define VS1053_CS     32
@@ -150,18 +151,7 @@ void setup() {
   Serial.println("\t d: tonalité par défaut");
   Serial.println("\t s: spatialisation");
 
-  Serial.print("Connexion au reseau ");
-  Serial.println(ssid);
-  WiFi.begin(ssid, password);
 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  Serial.println("WiFi connecte");
-  Serial.println("Adresse IP: ");
-  Serial.println(WiFi.localIP());
 
   SPI.begin();
 
@@ -174,8 +164,34 @@ void setup() {
 
 
   connexionChaine();
-}
 
+  WiFi.mode(WIFI_STA);
+  WiFiManager wm;
+
+  if (!wm.autoConnect("Camille", "12345678")) {
+      Serial.println(" Échec connexion WiFi, reboot...");
+      delay(3000);
+      ESP.restart();
+    }
+
+    Serial.println(" WiFi connecté !");
+    Serial.print("Adresse IP : ");
+    Serial.println(WiFi.localIP());
+
+    Serial.println("\nWiFi connecte");
+    Serial.println("Adresse IP: ");
+    Serial.println(WiFi.localIP());
+
+    SPI.begin();
+
+    player.begin();
+    player.switchToMp3Mode();
+    player.setVolume(volume);
+    player.setTone(toneSettings);  // appliquer les graves et aigus au démarrage
+
+    connexionChaine();
+
+}
 void loop() {
 
   if (Serial.available()) {
