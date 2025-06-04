@@ -120,24 +120,6 @@ void connexionChaine () {
                "Connection: close\r\n\r\n");
 }
 
-// Fonction améliorée pour la spatialisation
-void setSpatial(uint8_t mode) {
-    // Sauvegarder les paramètres actuels
-    uint16_t oldMode = player.readRegister(0x1E00);
-    
-    // Appliquer le nouveau mode de spatialisation
-    // Mode_5 register (0x1E04) - Spatialisation
-    player.writeRegister(0x7D, 0x1E04); // SCI_WRAMADDR
-    player.writeRegister(0x7E, mode);   // SCI_WRAM
-    
-    // Réappliquer les paramètres audio
-    player.writeRegister(0x7D, 0x1E00); // SCI_WRAMADDR
-    player.writeRegister(0x7E, oldMode); // SCI_WRAM
-    
-    Serial.print("Spatialisation niveau ");
-    Serial.println(mode);
-}
-
 
 void resetTone() {
     bassAmp = 0;
@@ -288,11 +270,23 @@ void loop() {
         resetTone();
     }
 
-    // Spatialisation
-    if (c == 's') {
-        spatialMode = (spatialMode + 1) % SPATIAL_LEVELS;
-        setSpatial(spatialMode);
-    }
+    
+  if (c == 's') {
+        spatial = (spatial + 1) % 4;
+        uint16_t value = 0;
+        switch (spatial) {
+          case 0: value = 0x0000; break;
+          case 1: value = 0x2020; break;
+          case 2: value = 0x4040; break;
+          case 3: value = 0x6060; break;
+        }
+        player.writeRegister(SCI_SPATIAL, value);
+        Serial.print("Spatialisation niveau ");
+        Serial.println(spatial);
+        player.setVolume(volume); // rétablit un niveau sonore correct
+
+      }
+
   }
 
   if (client.available() > 0) {

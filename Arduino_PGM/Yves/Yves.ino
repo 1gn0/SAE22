@@ -13,21 +13,12 @@
 
 #include <VS1053.h>
 #include <WiFi.h>
+#include <math.h> // Pour les calculs audio avancés
 
 // broches utilisées
 #define VS1053_CS     32
 #define VS1053_DCS    33
 #define VS1053_DREQ   15
-
-#define Defaut_TF 2   // Treble Frequency par défaut (2 kHz)
-#define Defaut_BF 15  // Bass Frequency par défaut (150 Hz)
-
-uint8_t Treble_Amp = 8;     // 0 = -8 dB ; 8 = 0 dB ; max = 15 = +7 dB
-uint8_t Treble_Freq = Defaut_TF;
-uint8_t Bass_Amp = 0;       // 0 à 15 dB
-uint8_t Bass_Freq = Defaut_BF;
-
-uint8_t Tonalite[4] = {Treble_Amp, Treble_Freq, Bass_Amp, Bass_Freq};
 
 // nom et mot de passe de votre réseau:
 const char *ssid = "Camille";
@@ -36,7 +27,19 @@ const char *password = "telcamille";
 #define BUFFSIZE 64  //32, 64 ou 128
 uint8_t mp3buff[BUFFSIZE];
 
+#define BASS_MIN 0
+#define BASS_MAX 15
+#define TREBLE_MIN 0
+#define TREBLE_MAX 15
+#define SPATIAL_LEVELS 4
+int spatial = 0;
+
+// Fréquences par défaut
+#define DEFAULT_BASS_FREQ 15 // 150Hz
+#define DEFAULT_TREBLE_FREQ 2 // 2KHz
+
 int volume = 100;  // volume sonore 0 à 100
+
 
 #define NOMBRECHAINES 7 // nombre de chaînes prédéfinies
 int chaine = 0; //station actuellement sélectionnée
@@ -45,6 +48,12 @@ int chaine = 0; //station actuellement sélectionnée
 char host[40];
 char path[40];
 int httpPort;
+
+// Réglages audio
+uint8_t bassAmp = 0;
+uint8_t trebleAmp = 0;
+uint8_t spatialMode = 0;
+uint8_t toneSettings[4] = {0, DEFAULT_TREBLE_FREQ, 0, DEFAULT_BASS_FREQ};
 
 VS1053 player(VS1053_CS, VS1053_DCS, VS1053_DREQ);
 WiFiClient client;
@@ -112,6 +121,17 @@ void connexionChaine () {
                "Connection: close\r\n\r\n");
 }
 
+
+void resetTone() {
+    bassAmp = 0;
+    trebleAmp = 0;
+    toneSettings[0] = trebleAmp;   // Treble Amplitude
+    toneSettings[2] = bassAmp;     // Bass Amplitude
+    player.setTone(toneSettings);
+    Serial.println("Tonalité réinitialisée");
+}
+
+
 void setup() {
   Serial.begin(115200);
 
@@ -120,14 +140,19 @@ void setup() {
 
   Serial.println("Controles: ");
   Serial.println("\t n: synthoniser une autre chaine");
-  Serial.println("\t + / -: controle du volume");
+  Serial.println("\t v: chaine précédente");
+  Serial.println("\t y/+: augmenter volume");
+  Serial.println("\t b/-: diminuer volume");
+  Serial.println("\t g: basses +");
+  Serial.println("\t f: basses -");
+  Serial.println("\t j: aigus +");
+  Serial.println("\t h: aigus -");
+  Serial.println("\t d: tonalité par défaut");
+  Serial.println("\t s: spatialisation");
 
   Serial.print("Connexion au reseau ");
   Serial.println(ssid);
   WiFi.begin(ssid, password);
-
-  
-
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -140,12 +165,15 @@ void setup() {
 
   SPI.begin();
 
+  // Initialisation des réglages audio
   player.begin();
   player.switchToMp3Mode();
   player.setVolume(volume);
+  player.setTone(toneSettings);
+
+
 
   connexionChaine();
-
 }
 
 void loop() {
@@ -165,20 +193,22 @@ void loop() {
       }
       connexionChaine();
     }
+
+    // Changer de chaîne (précédente)
     if (c == 'v') {
-      Serial.println("On change de chaine");
+      Serial.println("Chaine précédente");
       client.stop();
-      if (chaine < (NOMBRECHAINES - 1)) {
+      if (chaine > 0) {
         chaine--;
-      }
-      else { // retour au début de la liste
-        chaine = 0;
+      } 
+      else {
+        chaine = NOMBRECHAINES - 1;
       }
       connexionChaine();
     }
 
-    // +: augmenter le volume
-    if (c == 'y') {
+    // Augmenter le volume
+    if (c == 'y' || c == '+') {
       if (volume < 100) {
         Serial.println("Plus fort");
         volume++;
@@ -186,74 +216,77 @@ void loop() {
       }
     }
 
-    // -: diminuer le volume
-    if (c == 'b') {
+    // Diminuer le volume
+    if (c == 'b' || c == '-') {
       if (volume > 0) {
         Serial.println("Moins fort");
         volume--;
-        player.setVolume(volume); 
+        player.setVolume(volume);
       }
     }
 
-    // g: augmenter les basses
+    // Contrôle des basses
     if (c == 'g') {
-      if (Bass_Amp < 15) {
-        Bass_Amp++;
-        Tonalite[2] = Bass_Amp;       // Bass Amp
-        Tonalite[3] = Bass_Freq;      // Bass Freq
-        Tonalite[0] = Treble_Amp;     // Treble Amp
-        Tonalite[1] = Treble_Freq;    // Treble Freq
-        Serial.print("Basses + => ");
-        Serial.print(Bass_Amp);
-        Serial.println(" dB");
-        player.setTone(Tonalite);
+      if (bassAmp < BASS_MAX) {
+        bassAmp++;
+        toneSettings[2] = bassAmp;
+        player.setTone(toneSettings);
+        Serial.print("Basses: ");
+        Serial.println(bassAmp);
       }
     }
-
-    // f: diminuer les basses
     if (c == 'f') {
-      if (Bass_Amp > 0) {
-        Bass_Amp--;
-        Tonalite[2] = Bass_Amp;
-        Tonalite[3] = Bass_Freq;
-        Tonalite[0] = Treble_Amp;
-        Tonalite[1] = Treble_Freq;
-        Serial.print("Basses - => ");
-        Serial.print(Bass_Amp);
-        Serial.println(" dB");
-        player.setTone(Tonalite);
+      if (bassAmp > BASS_MIN) {
+        bassAmp--;
+        toneSettings[2] = bassAmp;
+        player.setTone(toneSettings);
+        Serial.print("Basses: ");
+        Serial.println(bassAmp);
       }
     }
 
-    // j: augmenter les aigus
+    // Contrôle des aigus
     if (c == 'j') {
-      if (Treble_Amp < 15) {
-        Treble_Amp++;
-        Tonalite[0] = Treble_Amp;
-        Tonalite[1] = Treble_Freq;
-        Tonalite[2] = Bass_Amp;
-        Tonalite[3] = Bass_Freq;
-        Serial.print("Aigus + => ");
-        Serial.print((int)Treble_Amp - 8);  // valeur réelle
-        Serial.println(" dB");
-        player.setTone(Tonalite);
+      if (trebleAmp < TREBLE_MAX) {
+        trebleAmp++;
+        toneSettings[0] = trebleAmp;
+        player.setTone(toneSettings);
+        Serial.print("Aigus: ");
+        Serial.println(trebleAmp);
+      }
+    }
+    if (c == 'h') {
+      if (trebleAmp > TREBLE_MIN) {
+        trebleAmp--;
+        toneSettings[0] = trebleAmp;
+        player.setTone(toneSettings);
+        Serial.print("Aigus: ");
+        Serial.println(trebleAmp);
       }
     }
 
-    // h: diminuer les aigus
-    if (c == 'h') {
-      if (Treble_Amp > 0) {
-        Treble_Amp--;
-        Tonalite[0] = Treble_Amp;
-        Tonalite[1] = Treble_Freq;
-        Tonalite[2] = Bass_Amp;
-        Tonalite[3] = Bass_Freq;
-        Serial.print("Aigus - => ");
-        Serial.print((int)Treble_Amp - 8);
-        Serial.println(" dB");
-        player.setTone(Tonalite);
-      }
+    // Tonalité par défaut
+    if (c == 'd') {
+        resetTone();
     }
+
+    
+  if (c == 's') {
+        spatial = (spatial + 1) % 4;
+        uint16_t value = 0x0800;
+        switch (spatial) {
+          case 0: value = 0x0800; break;
+          case 1: value = 0x0820; break;
+          case 2: value = 0x0840; break;
+          case 3: value = 0x0880; break;
+        }
+        player.writeRegister(0x00, value);
+        Serial.print("Spatialisation niveau ");
+        Serial.println(spatial);
+        player.setVolume(volume); // rétablit un niveau sonore correct
+
+      }
+
   }
 
   if (client.available() > 0) {
@@ -262,5 +295,4 @@ void loop() {
       player.playChunk(mp3buff, bytesread);
     }
   }
-} 
-
+}
