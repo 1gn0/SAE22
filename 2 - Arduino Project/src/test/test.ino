@@ -14,6 +14,7 @@
 #include <VS1053.h>
 #include <WiFi.h>
 #include <math.h> // Pour les calculs audio avancés
+#include <WiFiManager.h>
 
 // broches utilisées
 #define VS1053_CS     32
@@ -21,8 +22,8 @@
 #define VS1053_DREQ   15
 
 // nom et mot de passe de votre réseau:
-const char *ssid = "Camille";
-const char *password = "telcamille";
+const char *ssid = "Anonymous";
+const char *password = "password";
 
 #define BUFFSIZE 64  //32, 64 ou 128
 uint8_t mp3buff[BUFFSIZE];
@@ -32,6 +33,7 @@ uint8_t mp3buff[BUFFSIZE];
 #define TREBLE_MIN 0
 #define TREBLE_MAX 15
 #define SPATIAL_LEVELS 4
+int spatial = 0;
 
 // Fréquences par défaut
 #define DEFAULT_BASS_FREQ 15 // 150Hz
@@ -56,6 +58,8 @@ uint8_t toneSettings[4] = {0, DEFAULT_TREBLE_FREQ, 0, DEFAULT_BASS_FREQ};
 
 VS1053 player(VS1053_CS, VS1053_DCS, VS1053_DREQ);
 WiFiClient client;
+
+bool con;
 
 // connexion à une chaine
 void connexionChaine () {
@@ -149,33 +153,35 @@ void setup() {
   Serial.println("\t d: tonalité par défaut");
   Serial.println("\t s: spatialisation");
 
-  Serial.print("Connexion au reseau ");
-  Serial.println(ssid);
-  WiFi.begin(ssid, password);
+  WiFi.mode(WIFI_STA);
+  WiFiManager wm;
 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+  wm.resetSettings();
+
+  con = wm.autoConnect(ssid, password);
+
+  if (!con) {
+    Serial.println(" Échec connexion WiFi, reboot...");
+  }
+  else {
+    //if you get here you have connected to the WiFi    
+    Serial.println("connected...yeey :)");
   }
 
-  Serial.println("WiFi connecte");
+  Serial.println("\nWiFi connecte");
   Serial.println("Adresse IP: ");
   Serial.println(WiFi.localIP());
 
   SPI.begin();
 
-  // Initialisation des réglages audio
   player.begin();
   player.switchToMp3Mode();
   player.setVolume(volume);
-  player.setTone(toneSettings);
-
-  // Initialisation de la spatialisation
-  setSpatial(0); // Désactivé par défaut
+  player.setTone(toneSettings);  // appliquer les graves et aigus au démarrage
 
   connexionChaine();
-}
 
+}
 void loop() {
 
   if (Serial.available()) {
@@ -273,14 +279,14 @@ void loop() {
     
   if (c == 's') {
         spatial = (spatial + 1) % 4;
-        uint16_t value = 0;
+        uint16_t value = 0x0800;
         switch (spatial) {
-          case 0: value = 0x0000; break;
-          case 1: value = 0x2020; break;
-          case 2: value = 0x4040; break;
-          case 3: value = 0x6060; break;
+          case 0: value = 0x0800; break;
+          case 1: value = 0x0820; break;
+          case 2: value = 0x0840; break;
+          case 3: value = 0x0880; break;
         }
-        player.writeRegister(SCI_SPATIAL, value);
+        player.writeRegister(0x00, value);
         Serial.print("Spatialisation niveau ");
         Serial.println(spatial);
         player.setVolume(volume); // rétablit un niveau sonore correct
