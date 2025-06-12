@@ -167,19 +167,18 @@ void setup() {
 
   WiFi.mode(WIFI_STA);
   WiFiManager wm;
+  bool test;
 
-  if (!wm.autoConnect("Camille", "12345678")) {
+  test = wm.autoConnect("esp32Camille");
+
+  if (!test) {
       Serial.println(" Échec connexion WiFi, reboot...");
       delay(3000);
-      ESP.restart();
+      // ESP.restart();
     }
 
     Serial.println(" WiFi connecté !");
     Serial.print("Adresse IP : ");
-    Serial.println(WiFi.localIP());
-
-    Serial.println("\nWiFi connecte");
-    Serial.println("Adresse IP: ");
     Serial.println(WiFi.localIP());
 
     SPI.begin();
