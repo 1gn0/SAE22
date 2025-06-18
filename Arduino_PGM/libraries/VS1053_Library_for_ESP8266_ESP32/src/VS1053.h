@@ -113,7 +113,7 @@ protected:
         SPI.endTransaction();               // Allow other SPI users
     }
 
-    uint16_t read_register(uint8_t _reg) const;
+    
 
     void sdi_send_buffer(uint8_t *data, size_t len);
 
@@ -124,6 +124,7 @@ protected:
     uint16_t wram_read(uint16_t address);
 
 public:
+    uint16_t read_register(uint8_t _reg) const;
     // Constructor.  Only sets pin values.  Doesn't touch the chip.  Be sure to call begin()!
     VS1053(uint8_t _cs_pin, uint8_t _dcs_pin, uint8_t _dreq_pin);
 

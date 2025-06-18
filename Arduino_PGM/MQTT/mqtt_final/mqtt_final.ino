@@ -3,6 +3,7 @@
 #include <VS1053.h>
 #include <WiFi.h>
 #include <WiFiManager.h>
+#include <PubSubClient.h>
 
 #define VS1053_CS     32
 #define VS1053_DCS    33
@@ -10,7 +11,9 @@
 
 
 ESP32_VS1053_Stream radio;
-
+const char* mqtt_server = "broker.mqtt-dashboard.com";
+WiFiClient espClient;
+PubSubClient client(espClient);
 
 VS1053 player(VS1053_CS, VS1053_DCS, VS1053_DREQ);
 
@@ -40,7 +43,37 @@ int modeSpatial = 0;
 #define DEFAULT_TREBLE_FREQ 2 // 2KHz
 
 uint8_t toneSettings[4] = {0, DEFAULT_TREBLE_FREQ, 0, DEFAULT_BASS_FREQ};
+String lastMQTTMessage = "";
+void callback(char* topic, byte* payload, unsigned int length) {
+  String message;
+  for (int i = 0; i < length; i++) {
+    message += (char)payload[i];
+  }
 
+  Serial.print("MQTT reçu [");
+  Serial.print(topic);
+  Serial.print("] : ");
+  Serial.println(message);
+  if (String(topic) == "radioESP32Camille/commande") {
+    lastMQTTMessage = message;
+}
+}
+
+void reconnect() {
+  while (!client.connected()) {
+    Serial.print("Connexion MQTT...");
+    String clientId = "ESP32RadioCamille";
+    if (client.connect(clientId.c_str())) {
+      Serial.println("Connecté !");
+      client.subscribe("radioESP32Camille/#"); 
+    } else {
+      Serial.print("Échec, rc=");
+      Serial.print(client.state());
+      Serial.println(" -> attente 5s");
+      delay(5000);
+    }
+  }
+}
 
 void setSpatialisationMode(int mode) {
   uint16_t value = player.read_register(0x00); // Lire la valeur du registre
@@ -69,6 +102,9 @@ void resetTone() {
     Serial.println("Tonalité réinitialisée");
 }
 void setup() {
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
+
   Serial.begin(115200);
   Serial.println("\n=== Radio WiFi ESP32 ===");
   player.setTone(toneSettings);
@@ -108,12 +144,17 @@ void setup() {
 }
 
 void loop() {
+    if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+
   radio.loop();
 
-  if (Serial.available()) {
+  if (Serial.available() || lastMQTTMessage != "") {
     char c = Serial.read();
 
-    if (c == 'n' || c == 'v') {
+    if (c == 'n' || lastMQTTMessage == "n") {
       chaine = (chaine + 1) % NOMBRECHAINES;
       Serial.println("Changement de chaine...");
       radio.stopSong();
@@ -126,73 +167,99 @@ void loop() {
       } else {
         Serial.println("Connexion réussie !");
       }
+      lastMQTTMessage="";
     }
 
-    if (c == 'y' && volume < 100) {
+    if (c == 'v' || lastMQTTMessage == "v") {
+      chaine = (chaine - 1) % NOMBRECHAINES;
+      Serial.println("Changement de chaine...");
+      radio.stopSong();
+
+      Serial.print("Connexion à l'URL : ");
+      Serial.println(urls[chaine]);
+
+      if (!radio.connecttohost(urls[chaine])) {
+        Serial.println("Erreur de connexion au flux !");
+      } else {
+        Serial.println("Connexion réussie !");
+      }
+      lastMQTTMessage="";
+    }
+
+    if (c == 'y' && volume < 100 || lastMQTTMessage == "y" && volume < 100) {
       volume++;
       player.setVolume(volume);
       Serial.print("Volume : ");
       Serial.println(volume);
+      lastMQTTMessage="";
     }
 
-    if (c == 'b' && volume > 0) {
+    if (c == 'b' && volume > 0 || lastMQTTMessage == "b" && volume > 0 ) {
       volume--;
       player.setVolume(volume);
       Serial.print("Volume : ");
       Serial.println(volume);
+      lastMQTTMessage="";
     }
 
-    if (c == 'g') {
+    if (c == 'g' || lastMQTTMessage == "g") {
       if (bassAmp < BASS_MAX) {
         bassAmp++;
         toneSettings[2] = bassAmp;
         player.setTone(toneSettings);
         Serial.print("Basses: ");
         Serial.println(bassAmp);
+        lastMQTTMessage="";
       }
     }
-    if (c == 'f') {
+    if (c == 'f' || lastMQTTMessage == "f") {
       if (bassAmp > BASS_MIN) {
         bassAmp--;
         toneSettings[2] = bassAmp;
         player.setTone(toneSettings);
         Serial.print("Basses: ");
         Serial.println(bassAmp);
+        lastMQTTMessage="";
       }
     }
 
     // Contrôle des aigus
-    if (c == 'j') {
+    if (c == 'j' || lastMQTTMessage == "j") {
       if (trebleAmp < TREBLE_MAX) {
         trebleAmp++;
         toneSettings[0] = trebleAmp;
         player.setTone(toneSettings);
         Serial.print("Aigus: ");
         Serial.println(trebleAmp);
+        lastMQTTMessage="";
       }
     }
-    if (c == 'h') {
+    if (c == 'h' || lastMQTTMessage == "h") {
       if (trebleAmp > TREBLE_MIN) {
         trebleAmp--;
         toneSettings[0] = trebleAmp;
         player.setTone(toneSettings);
         Serial.print("Aigus: ");
         Serial.println(trebleAmp);
+        lastMQTTMessage="";
       }
     }
 
-    if (c == 'd') {
+    if (c == 'd' || lastMQTTMessage == "d") {
       resetTone();
       player.setVolume(85);
       Serial.println("tonalité et volume par défaut");
+      lastMQTTMessage="";
     }
 
-    if (c == 's') {
+    if (c == 's' || lastMQTTMessage == "s") {
       modeSpatial = (modeSpatial + 1) % 4;
       setSpatialisationMode(modeSpatial);
+      lastMQTTMessage="";
     }
   }
 }
+
 
 
 
