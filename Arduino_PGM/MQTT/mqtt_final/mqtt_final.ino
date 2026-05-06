@@ -11,7 +11,7 @@
 
 
 ESP32_VS1053_Stream radio;
-const char* mqtt_server = "broker.mqtt-dashboard.com";
+const char* mqtt_server = "10.3.141.4";
 WiFiClient espClient;
 PubSubClient client(espClient);
 
@@ -42,7 +42,8 @@ int modeSpatial = 0;
 #define DEFAULT_BASS_FREQ 15 // 150Hz
 #define DEFAULT_TREBLE_FREQ 2 // 2KHz
 
-uint8_t toneSettings[4] = {0, DEFAULT_TREBLE_FREQ, 0, DEFAULT_BASS_FREQ};
+uint8_t toneSettings[4] = {5, DEFAULT_TREBLE_FREQ, 5, DEFAULT_BASS_FREQ};
+
 String lastMQTTMessage = "";
 void callback(char* topic, byte* payload, unsigned int length) {
   String message;
@@ -54,7 +55,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print(topic);
   Serial.print("] : ");
   Serial.println(message);
-  if (String(topic) == "radioESP32Camille/commande") {
+  if (String(topic) == "tptest/s4/HENRY") {
     lastMQTTMessage = message;
 }
 }
@@ -62,10 +63,10 @@ void callback(char* topic, byte* payload, unsigned int length) {
 void reconnect() {
   while (!client.connected()) {
     Serial.print("Connexion MQTT...");
-    String clientId = "ESP32RadioCamille";
+    String clientId = "ios_radio_panel";
     if (client.connect(clientId.c_str())) {
       Serial.println("Connecté !");
-      client.subscribe("radioESP32Camille/#"); 
+      client.subscribe("tptest/s4#"); 
     } else {
       Serial.print("Échec, rc=");
       Serial.print(client.state());
@@ -153,6 +154,13 @@ void loop() {
 
   if (Serial.available() || lastMQTTMessage != "") {
     char c = Serial.read();
+
+    if (lastMQTTMessage == "volume") {
+      volume = 96;
+      player.setVolume(volume);
+      Serial.print("Volume ( touche m ): ");
+      Serial.println(volume);
+    }
 
     if (c == 'n' || lastMQTTMessage == "n") {
       chaine = (chaine + 1) % NOMBRECHAINES;

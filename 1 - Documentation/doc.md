@@ -75,3 +75,10 @@ Serial Data In
 Serial Clock In
 SDI et SCI sont les deux broches qui sont utilisées pour envoyer et recevoir des données sur le bus SPI.
 
+
+#### Protocole de communication MQTT (Message Queuing Telemetry Transport):
+
+Protocole de messagerie publication-abonnement (PubSub) basé sur le protocole TCP/IP et est très utilisé dans le monde du IoT.
+
+Dans notre cas le clien
+

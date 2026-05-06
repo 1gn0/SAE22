@@ -84,6 +84,7 @@ void setup() {
   Serial.println("WiFi connecté !");
   Serial.print("IP : ");
   Serial.println(WiFi.localIP());
+  Serial.println(WiFi.macAddress());
 
   SPI.begin();
 
@@ -112,6 +113,12 @@ void loop() {
 
   if (Serial.available()) {
     char c = Serial.read();
+    if (c == 'm') {
+      volume = 91;
+      player.setVolume(volume);
+      Serial.print("Volume ( touche m ): ");
+      Serial.println(volume);
+    }
 
     if (c == 'n' || c == 'v') {
       chaine = (chaine + 1) % NOMBRECHAINES;
